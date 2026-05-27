@@ -16,7 +16,7 @@ import (
 	"github.com/openvenues/gopostal/internal/setup"
 )
 
-var mu sync.RWMutex
+var mu sync.Mutex
 
 type ParserOptions struct {
 	Language string
@@ -42,12 +42,12 @@ func ParseAddressOptions(address string, options ParserOptions) []ParsedComponen
 		return nil
 	}
 
+	mu.Lock()
+	defer mu.Unlock()
+
 	if err := setup.Ensure(); err != nil {
 		log.Fatal(err)
 	}
-
-	mu.RLock()
-	defer mu.RUnlock()
 
 	cAddress := C.CString(address)
 	defer C.free(unsafe.Pointer(cAddress))

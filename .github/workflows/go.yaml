@@ -25,10 +25,34 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y autoconf automake libtool pkg-config git
 
-    - name: Clone libpostal
+    - name: Cache libpostal data
+      uses: actions/cache@v4
+      with:
+        path: ~/libpostal-data
+        key: libpostal-data-${{ runner.os }}-v1.1.4
+        restore-keys: |
+          libpostal-data-${{ runner.os }}-
+
+    - name: Build and install libpostal
       run: |
-        git clone https://github.com/openvenues/libpostal.git /libpostal && cd /libpostal \
-        ./bootstrap.sh && ./configure && make -j4 && make install && ldconfig
+        set -e
+        git clone -b v1.1.4 --depth 1 https://github.com/openvenues/libpostal.git /tmp/libpostal
+        cd /tmp/libpostal
+        ./bootstrap.sh
+        ./configure --prefix=$HOME/libpostal --datadir=$HOME/libpostal-data
+        make -j$(nproc)
+        make install
+        # Download (or verify) data into the configured datadir. This is a no-op on cache hit
+        # because the version files will match. The target must include the /libpostal suffix
+        # that configure appends to --datadir.
+        $HOME/libpostal/bin/libpostal_data download all $HOME/libpostal-data/libpostal
+
+    - name: Configure environment
+      run: |
+        echo "PKG_CONFIG_PATH=$HOME/libpostal/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$HOME/libpostal/lib:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+        echo "LIBRARY_PATH=$HOME/libpostal/lib" >> $GITHUB_ENV
+        echo "LIBPOSTAL_DATA_DIR=$HOME/libpostal-data/libpostal" >> $GITHUB_ENV
 
     - name: Set up Go 1.x
       uses: actions/setup-go@v6

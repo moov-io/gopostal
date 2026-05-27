@@ -55,6 +55,9 @@ func TestParseUSAddress(t *testing.T) {
 // TestConcurrentParse verifies that concurrent calls to ParseAddress do not
 // corrupt data or return incorrect results. All goroutines must observe
 // correct, independent results.
+//
+// The underlying parser lock is exclusive because libpostal's address parser
+// is not reentrant / thread-safe for concurrent calls.
 func TestConcurrentParse(t *testing.T) {
 	const goroutines = 100
 	const iterations = 50
@@ -116,7 +119,8 @@ func BenchmarkParse(b *testing.B) {
 }
 
 // BenchmarkParseParallel benchmarks address parsing under high concurrency.
-// This exercises the lock and demonstrates the benefit of RWMutex over Mutex.
+// Note: the parser uses an exclusive lock (not RWMutex) because libpostal's
+// address parser (CRF + feature extraction) is not safe for concurrent calls.
 func BenchmarkParseParallel(b *testing.B) {
 	address := "781 Franklin Ave Crown Heights Brooklyn NYC NY 11216 USA"
 	b.ResetTimer()
