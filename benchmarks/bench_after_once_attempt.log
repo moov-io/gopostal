@@ -1,0 +1,11 @@
+=== Benchmark run after sync.Once refactor ===
+Wed May 27 16:00:33 CDT 2026
+# github.com/openvenues/gopostal/internal/setup
+# [pkg-config --cflags  -- libpostal]
+Package libpostal was not found in the pkg-config search path.
+Perhaps you should add the directory containing `libpostal.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'libpostal' not found
+FAIL	github.com/openvenues/gopostal/parser [build failed]
+FAIL	github.com/openvenues/gopostal/expand [build failed]
+FAIL
