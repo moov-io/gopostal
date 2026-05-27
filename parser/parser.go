@@ -8,99 +8,98 @@ package postal
 import "C"
 
 import (
-    "log"
-    "sync"
-    "unsafe"
-    "unicode/utf8"
+	"log"
+	"sync"
+	"unicode/utf8"
+	"unsafe"
+
+	"github.com/openvenues/gopostal/internal/setup"
 )
 
-var mu sync.Mutex
-
-func init() {
-    if (!bool(C.libpostal_setup()) || !bool(C.libpostal_setup_parser())) {
-        log.Fatal("Could not load libpostal")
-    }
-}
+var mu sync.RWMutex
 
 type ParserOptions struct {
-    Language string
-    Country string
+	Language string
+	Country  string
 }
 
-
 func getDefaultParserOptions() ParserOptions {
-    return ParserOptions {
-        Language: "",
-        Country: "",
-    }
+	return ParserOptions{
+		Language: "",
+		Country:  "",
+	}
 }
 
 var parserDefaultOptions = getDefaultParserOptions()
 
 type ParsedComponent struct {
-    Label string `json:"label"`
-    Value string `json:"value"`
+	Label string `json:"label"`
+	Value string `json:"value"`
 }
 
 func ParseAddressOptions(address string, options ParserOptions) []ParsedComponent {
-    if !utf8.ValidString(address) {
-        return nil
-    }
+	if !utf8.ValidString(address) {
+		return nil
+	}
 
-    mu.Lock()
-    defer mu.Unlock()
+	if err := setup.Ensure(); err != nil {
+		log.Fatal(err)
+	}
 
-    cAddress := C.CString(address)
-    defer C.free(unsafe.Pointer(cAddress))
+	mu.RLock()
+	defer mu.RUnlock()
 
-    cOptions := C.libpostal_get_address_parser_default_options()
-    if options.Language != "" {
-        cLanguage := C.CString(options.Language)
-        defer C.free(unsafe.Pointer(cLanguage))
+	cAddress := C.CString(address)
+	defer C.free(unsafe.Pointer(cAddress))
 
-        cOptions.language = cLanguage
-    }
+	cOptions := C.libpostal_get_address_parser_default_options()
+	if options.Language != "" {
+		cLanguage := C.CString(options.Language)
+		defer C.free(unsafe.Pointer(cLanguage))
 
-    if options.Country != "" {
-        cCountry := C.CString(options.Country)
-        defer C.free(unsafe.Pointer(cCountry))
+		cOptions.language = cLanguage
+	}
 
-        cOptions.country = cCountry
-    }
+	if options.Country != "" {
+		cCountry := C.CString(options.Country)
+		defer C.free(unsafe.Pointer(cCountry))
 
-    cAddressParserResponsePtr := C.libpostal_parse_address(cAddress, cOptions)
+		cOptions.country = cCountry
+	}
 
-    if cAddressParserResponsePtr == nil {
-        return nil
-    }
+	cAddressParserResponsePtr := C.libpostal_parse_address(cAddress, cOptions)
 
-    cAddressParserResponse := *cAddressParserResponsePtr
+	if cAddressParserResponsePtr == nil {
+		return nil
+	}
 
-    cNumComponents := cAddressParserResponse.num_components
-    cComponents := cAddressParserResponse.components
-    cLabels := cAddressParserResponse.labels
+	cAddressParserResponse := *cAddressParserResponsePtr
 
-    numComponents := uint64(cNumComponents)
+	cNumComponents := cAddressParserResponse.num_components
+	cComponents := cAddressParserResponse.components
+	cLabels := cAddressParserResponse.labels
 
-    parsedComponents := make([]ParsedComponent, numComponents)
+	numComponents := uint64(cNumComponents)
 
-    // Accessing a C array
-    cComponentsPtr := (*[1<<30](*C.char))(unsafe.Pointer(cComponents))[:numComponents:numComponents]
-    cLabelsPtr := (*[1<<30](*C.char))(unsafe.Pointer(cLabels))[:numComponents:numComponents]
+	parsedComponents := make([]ParsedComponent, numComponents)
 
-    var i uint64
-    for i = 0; i < numComponents; i++ {
-        parsedComponents[i] = ParsedComponent{
-            Label: C.GoString(cLabelsPtr[i]),
-            Value: C.GoString(cComponentsPtr[i]),
-        }
-    }
+	// Accessing a C array
+	cComponentsPtr := (*[1 << 30](*C.char))(unsafe.Pointer(cComponents))[:numComponents:numComponents]
+	cLabelsPtr := (*[1 << 30](*C.char))(unsafe.Pointer(cLabels))[:numComponents:numComponents]
 
-    C.libpostal_address_parser_response_destroy(cAddressParserResponsePtr)
+	var i uint64
+	for i = 0; i < numComponents; i++ {
+		parsedComponents[i] = ParsedComponent{
+			Label: C.GoString(cLabelsPtr[i]),
+			Value: C.GoString(cComponentsPtr[i]),
+		}
+	}
 
-    return parsedComponents
+	C.libpostal_address_parser_response_destroy(cAddressParserResponsePtr)
+
+	return parsedComponents
 }
 
 func ParseAddress(address string) []ParsedComponent {
-    return ParseAddressOptions(address, parserDefaultOptions)
+	return ParseAddressOptions(address, parserDefaultOptions)
 }
