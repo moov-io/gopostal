@@ -112,8 +112,11 @@ func (e *parseMismatchError) Error() string {
 // BenchmarkParse benchmarks single-threaded address parsing.
 func BenchmarkParse(b *testing.B) {
 	address := "781 Franklin Ave Crown Heights Brooklyn NYC NY 11216 USA"
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	// Init C library
+	ParseAddress(address)
+
+	for b.Loop() {
 		_ = ParseAddress(address)
 	}
 }
@@ -123,7 +126,8 @@ func BenchmarkParse(b *testing.B) {
 // address parser (CRF + feature extraction) is not safe for concurrent calls.
 func BenchmarkParseParallel(b *testing.B) {
 	address := "781 Franklin Ave Crown Heights Brooklyn NYC NY 11216 USA"
-	b.ResetTimer()
+	ParseAddress(address)
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			_ = ParseAddress(address)

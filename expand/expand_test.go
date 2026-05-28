@@ -105,8 +105,11 @@ func (e *expandMismatchError) Error() string {
 // BenchmarkExpand benchmarks single-threaded address expansion.
 func BenchmarkExpand(b *testing.B) {
 	address := "123 Main St"
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	// Init C library
+	ExpandAddress(address)
+
+	for b.Loop() {
 		_ = ExpandAddress(address)
 	}
 }
@@ -115,7 +118,8 @@ func BenchmarkExpand(b *testing.B) {
 // This exercises the lock and demonstrates the benefit of RWMutex over Mutex.
 func BenchmarkExpandParallel(b *testing.B) {
 	address := "123 Main St"
-	b.ResetTimer()
+	ExpandAddress(address)
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			_ = ExpandAddress(address)
