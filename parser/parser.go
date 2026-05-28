@@ -13,7 +13,7 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/openvenues/gopostal/internal/setup"
+	"github.com/moov-io/gopostal/internal/setup"
 )
 
 var mu sync.Mutex
