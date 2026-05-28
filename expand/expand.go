@@ -92,12 +92,12 @@ func ExpandAddressOptions(address string, options ExpandOptions) []string {
 		return nil
 	}
 
+	mu.RLock()
+	defer mu.RUnlock()
+
 	if err := setup.Ensure(); err != nil {
 		log.Fatal(err)
 	}
-
-	mu.RLock()
-	defer mu.RUnlock()
 
 	cAddress := C.CString(address)
 	defer C.free(unsafe.Pointer(cAddress))

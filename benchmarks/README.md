@@ -1,16 +1,25 @@
 # Benchmark Results for gopostal concurrent access
 
+**Important:** The parser (but not expand) now uses an exclusive `sync.Mutex`
+instead of `RWMutex`. libpostal's address parser implementation (the CRF tagger
+and feature extraction in address_parser.c) is not safe for concurrent calls
+from multiple threads, even for read-only use after model loading. Using
+RWMutex for the parser led to internal corruption, "got NULL word" errors,
+and SIGSEGV under concurrent load (see `TestConcurrentParse`).
+
+The historical artifacts below predate this discovery and measured the (buggy)
+RWMutex behavior.
+
 This directory contains benchmark artifacts demonstrating two changes:
 
-1. `sync.Mutex` → `sync.RWMutex` for the runtime parse/expand calls
+1. `sync.Mutex` → `sync.RWMutex` for the runtime parse/expand calls (expand still uses RWMutex; parser uses exclusive Mutex)
 2. Removal of unsafe `init()` double-setup in favor of `sync.Once` via `internal/setup`
 
 ## Summary of results
 
-- **Mutex → RWMutex**: ~80× improvement on `Benchmark*Parallel` (the parallel
-  benchmarks now actually run concurrently instead of being serialized).
-- **RWMutex → RWMutex + sync.Once**: **Zero measurable regression** on hot-path
-  benchmarks. The `sync.Once` only affects the one-time initialization path.
+- **Mutex → RWMutex** (historical, for expand): allowed concurrent expansion calls.
+- Parser now uses exclusive Mutex (required for correctness).
+- **RWMutex + sync.Once**: zero regression on the hot path after the one-time setup.
 
 ## Files
 
