@@ -115,7 +115,8 @@ func BenchmarkExpand(b *testing.B) {
 }
 
 // BenchmarkExpandParallel benchmarks address expansion under high concurrency.
-// This exercises the lock and demonstrates the benefit of RWMutex over Mutex.
+// With a concurrent-access build of libpostal, expansion is safe to call
+// from many goroutines simultaneously (no Go-side locking needed).
 func BenchmarkExpandParallel(b *testing.B) {
 	address := "123 Main St"
 	ExpandAddress(address)

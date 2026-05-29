@@ -7,16 +7,20 @@ package postal
 */
 import "C"
 
+// Package postal provides Go bindings for libpostal address parsing.
+//
+// When built against a libpostal version with concurrent access support,
+// ParseAddress and ParseAddressOptions use a small internal pool of parser
+// handles. This allows useful concurrency from multiple goroutines even when
+// an individual parser handle is not fully reentrant.
+
 import (
 	"log"
-	"sync"
 	"unicode/utf8"
 	"unsafe"
 
 	"github.com/moov-io/gopostal/internal/setup"
 )
-
-var mu sync.Mutex
 
 type ParserOptions struct {
 	Language string
@@ -42,12 +46,12 @@ func ParseAddressOptions(address string, options ParserOptions) []ParsedComponen
 		return nil
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
-
 	if err := setup.Ensure(); err != nil {
 		log.Fatal(err)
 	}
+
+	handle := setup.AcquireParserHandle()
+	defer setup.ReleaseParserHandle(handle)
 
 	cAddress := C.CString(address)
 	defer C.free(unsafe.Pointer(cAddress))
@@ -67,7 +71,7 @@ func ParseAddressOptions(address string, options ParserOptions) []ParsedComponen
 		cOptions.country = cCountry
 	}
 
-	cAddressParserResponsePtr := C.libpostal_parse_address(cAddress, cOptions)
+	cAddressParserResponsePtr := C.libpostal_parse_address((*C.address_parser_t)(handle), cAddress, cOptions)
 
 	if cAddressParserResponsePtr == nil {
 		return nil

@@ -2,6 +2,7 @@ package postal
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
@@ -56,8 +57,9 @@ func TestParseUSAddress(t *testing.T) {
 // corrupt data or return incorrect results. All goroutines must observe
 // correct, independent results.
 //
-// The underlying parser lock is exclusive because libpostal's address parser
-// is not reentrant / thread-safe for concurrent calls.
+// A small internal pool of parser handles is used to allow concurrent
+// parsing even if an individual libpostal parser handle is not fully
+// reentrant.
 func TestConcurrentParse(t *testing.T) {
 	const goroutines = 100
 	const iterations = 50
@@ -106,7 +108,7 @@ type parseMismatchError struct {
 }
 
 func (e *parseMismatchError) Error() string {
-	return "concurrent parse mismatch"
+	return fmt.Sprintf("concurrent parse mismatch\n Got: %#v\n Want: %#v", e.got, e.want)
 }
 
 // BenchmarkParse benchmarks single-threaded address parsing.
@@ -122,8 +124,7 @@ func BenchmarkParse(b *testing.B) {
 }
 
 // BenchmarkParseParallel benchmarks address parsing under high concurrency.
-// Note: the parser uses an exclusive lock (not RWMutex) because libpostal's
-// address parser (CRF + feature extraction) is not safe for concurrent calls.
+// A small pool of parser handles is used internally.
 func BenchmarkParseParallel(b *testing.B) {
 	address := "781 Franklin Ave Crown Heights Brooklyn NYC NY 11216 USA"
 	ParseAddress(address)

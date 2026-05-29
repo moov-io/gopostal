@@ -10,14 +10,18 @@ import "C"
 
 import (
 	"log"
-	"sync"
 	"unicode/utf8"
 	"unsafe"
 
 	"github.com/moov-io/gopostal/internal/setup"
 )
 
-var mu sync.RWMutex
+// Package postal provides Go bindings for libpostal address expansion.
+//
+// When built against a libpostal version with concurrent access support
+// (pthread_once guards on core data modules), ExpandAddress and
+// ExpandAddressOptions are safe for concurrent use from multiple goroutines
+// with no additional locking on the Go side.
 
 const (
 	AddressNone        = C.LIBPOSTAL_ADDRESS_NONE
@@ -91,9 +95,6 @@ func ExpandAddressOptions(address string, options ExpandOptions) []string {
 	if !utf8.ValidString(address) {
 		return nil
 	}
-
-	mu.RLock()
-	defer mu.RUnlock()
 
 	if err := setup.Ensure(); err != nil {
 		log.Fatal(err)
